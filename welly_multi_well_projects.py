@@ -5,7 +5,6 @@ from io import StringIO
 import matplotlib.pyplot as plt
 from welly import Well, Project
 
-@echo
 def load_wells(uploaded_files):
     wells = []
     for uploaded_file in uploaded_files:
