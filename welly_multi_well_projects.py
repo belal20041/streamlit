@@ -5,9 +5,15 @@ from io import StringIO
 import matplotlib.pyplot as plt
 from welly import Well, Project, Curve
 
-# Load multiple wells using Project
-def load_wells(directory_path):
-    wells = Project.from_las(directory_path)
+# Function to load and process multiple LAS files
+def load_wells(uploaded_files):
+    wells = Project()
+    for uploaded_file in uploaded_files:
+        bytes_data = uploaded_file.read()
+        str_io = StringIO(bytes_data.decode('Windows-1252'))
+        las = lasio.read(str_io)
+        well = Well.from_lasio(las)
+        wells += well
     return wells
 
 # Function to display well details
@@ -23,7 +29,7 @@ def plot_gr_curves(wells):
     for i, (ax, well) in enumerate(zip(axs, wells)):
         gr = well.get_curve('GR')
         if gr is not None:
-            ax = gr.plot(ax=ax, c='green')
+            gr.plot(ax=ax, c='green')
             ax.set_title(f"GR for\n{well.name}")
     plt.tight_layout()
     st.pyplot(fig)
@@ -35,7 +41,7 @@ def plot_rhob_curves(wells):
     for i, (ax, well) in enumerate(zip(axs, wells)):
         rhob = well.get_curve(curve_name)
         if rhob is not None:
-            ax = rhob.plot(ax=ax, c='red')
+            rhob.plot(ax=ax, c='red')
             ax.set_title(f"{curve_name} for\n{well.name}")
     plt.tight_layout()
     st.pyplot(fig)
@@ -44,9 +50,10 @@ def plot_rhob_curves(wells):
 def show_page():
     st.title("Welly Multi Well Project")
 
-    directory_path = st.text_input("Enter the path to your 'welly_data' folder containing LAS files")
-    if directory_path:
-        wells = load_wells(directory_path)
+    # Allow users to upload multiple LAS files
+    uploaded_files = st.file_uploader("Upload LAS files", type=["las"], accept_multiple_files=True)
+    if uploaded_files:
+        wells = load_wells(uploaded_files)
         st.success(f"{len(wells)} wells loaded successfully")
 
         display_options = st.multiselect(
@@ -62,6 +69,10 @@ def show_page():
 
         if "RHOB Curves" in display_options:
             plot_rhob_curves(wells)
+
+if __name__ == "__main__":
+    show_page()
+
 
 if __name__ == "__main__":
     show_page()
