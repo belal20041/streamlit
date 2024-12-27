@@ -9,11 +9,14 @@ from welly import Well, Project, Curve
 def load_wells(uploaded_files):
     wells = Project()
     for uploaded_file in uploaded_files:
-        bytes_data = uploaded_file.read()
-        str_io = StringIO(bytes_data.decode('Windows-1252'))
-        las = lasio.read(str_io)
-        well = Well.from_lasio(las)
-        wells += well
+        try:
+            bytes_data = uploaded_file.read()
+            str_io = StringIO(bytes_data.decode('Windows-1252'))
+            las = lasio.read(str_io)
+            well = Well.from_lasio(las)
+            wells += well
+        except Exception as e:
+            st.error(f"Error processing file {uploaded_file.name}: {e}")
     return wells
 
 # Function to display well details
@@ -69,10 +72,6 @@ def show_page():
 
         if "RHOB Curves" in display_options:
             plot_rhob_curves(wells)
-
-if __name__ == "__main__":
-    show_page()
-
 
 if __name__ == "__main__":
     show_page()
