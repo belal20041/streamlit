@@ -3,18 +3,18 @@ import pandas as pd
 import lasio
 from io import StringIO
 import matplotlib.pyplot as plt
-from welly import Well, Project, Curve
+from welly import Well, Project
 
 # Function to load and process multiple LAS files
 def load_wells(uploaded_files):
-    wells = Project()
+    wells = []
     for uploaded_file in uploaded_files:
         try:
             bytes_data = uploaded_file.read()
             str_io = StringIO(bytes_data.decode('Windows-1252'))
             las = lasio.read(str_io)
             well = Well.from_lasio(las)
-            wells += well
+            wells.append(well)
         except Exception as e:
             st.error(f"Error processing file {uploaded_file.name}: {e}")
     return wells
