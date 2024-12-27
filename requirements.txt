@@ -4,3 +4,4 @@ matplotlib
 lasio
 welly
 setuptools
+openpyxl
