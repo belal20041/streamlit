@@ -132,7 +132,7 @@ def show_page():
                 las_df = pd.DataFrame({curve: well.data[curve].values for curve in well.data.keys()})
                 st.write(f"LAS Data in DataFrame for {well.name}:")
                 st.dataframe(las_df)
-                well.plot(extents='curves')
+                data.plot(extents='curves')
 
     if survey_file:
         survey = load_survey(survey_file)
