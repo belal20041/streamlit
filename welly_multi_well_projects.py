@@ -4,6 +4,8 @@ import lasio
 from io import StringIO
 import matplotlib.pyplot as plt
 from welly import Well, Project
+import folium
+from streamlit_folium import folium_static
 
 def load_wells(uploaded_files):
     wells = []
@@ -18,14 +20,12 @@ def load_wells(uploaded_files):
             st.error(f"Error processing file {uploaded_file.name}: {e}")
     return wells
 
-# Function to display well details
 def show_well_details(wells):
     st.write(f"Number of wells loaded: {len(wells)}")
     for well in wells:
         st.write(f"Well: {well.name}")
         st.write(f"Curves: {list(well.data.keys())}")
 
-# Function to plot GR and DEPTH from all wells
 def plot_gr_curves(wells):
     fig, axs = plt.subplots(figsize=(14, 10), ncols=len(wells))
     for i, (ax, well) in enumerate(zip(axs, wells)):
@@ -36,7 +36,6 @@ def plot_gr_curves(wells):
     plt.tight_layout()
     st.pyplot(fig)
 
-# Function to plot RHOB and DEPTH from all wells
 def plot_rhob_curves(wells):
     fig, axs = plt.subplots(figsize=(14, 10), ncols=len(wells))
     curve_name = 'RHOB'
@@ -48,11 +47,18 @@ def plot_rhob_curves(wells):
     plt.tight_layout()
     st.pyplot(fig)
 
-# Streamlit App to display the page
+def show_map(wells):
+    map_center = [30.0, 31.0]
+    m = folium.Map(location=map_center, zoom_start=5)
+    for well in wells:
+        loc = well.location
+        if loc is not None:
+            folium.Marker([loc.latitude, loc.longitude], tooltip=well.name).add_to(m)
+    folium_static(m)
+
 def show_page():
     st.title("Welly Multi Well Project")
 
-    # Allow users to upload multiple LAS files
     uploaded_files = st.file_uploader("Upload LAS files", type=["las"], accept_multiple_files=True)
     if uploaded_files:
         wells = load_wells(uploaded_files)
@@ -60,7 +66,7 @@ def show_page():
 
         display_options = st.multiselect(
             "Select what to display:",
-            ["Well Details", "GR Curves", "RHOB Curves"]
+            ["Well Details", "GR Curves", "RHOB Curves", "Well Locations Map"]
         )
 
         if "Well Details" in display_options:
@@ -71,6 +77,9 @@ def show_page():
 
         if "RHOB Curves" in display_options:
             plot_rhob_curves(wells)
+
+        if "Well Locations Map" in display_options:
+            show_map(wells)
 
 if __name__ == "__main__":
     show_page()
