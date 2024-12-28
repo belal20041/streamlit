@@ -86,6 +86,7 @@ def plot_subplots(well_data):
     for ax in [ax2, ax3]:
         plt.setp(ax.get_yticklabels(), visible=False)
     fig.subplots_adjust(wspace=0.05)
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     st.pyplot(fig)
 
 
