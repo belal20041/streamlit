@@ -6,3 +6,4 @@ welly
 setuptools
 openpyxl
 folium
+streamlit_folium
