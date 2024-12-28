@@ -5,3 +5,4 @@ lasio
 welly
 setuptools
 openpyxl
+folium
