@@ -11,7 +11,6 @@ def load_data(uploaded_file):
         str_io = StringIO(bytes_data.decode('Windows-1252'))
         las_file = lasio.read(str_io)
         well_data = las_file.df()
-
         return las_file, well_data
     return None, None
 
@@ -56,20 +55,20 @@ def plot_subplots(well_data):
     ax3 = plt.subplot2grid((1, 3), (0, 2), rowspan=1, colspan=1)
     ax4 = ax3.twiny()
 
-    ax1.plot(well_data["GR"], well_data["DEPTH"], color="green", lw=0.5)
+    ax1.plot(well_data["GR"], well_data.index, color="green", lw=0.5)
     ax1.set_xlim(0, 200)
     ax1.spines['top'].set_edgecolor('green')
 
-    ax2.plot(well_data["RDEP"], well_data["DEPTH"], color="red", lw=0.5)
+    ax2.plot(well_data["RDEP"], well_data.index, color="red", lw=0.5)
     ax2.set_xlim(0.2, 2000)
     ax2.semilogx()
     ax2.spines['top'].set_edgecolor('red')
 
-    ax3.plot(well_data["DEN"], well_data["DEPTH"], color="red", lw=0.5)
+    ax3.plot(well_data["DEN"], well_data.index, color="red", lw=0.5)
     ax3.set_xlim(1.95, 2.95)
     ax3.spines['top'].set_edgecolor('red')
 
-    ax4.plot(well_data["NEU"], well_data["DEPTH"], color="blue", lw=0.5)
+    ax4.plot(well_data["NEU"], well_data.index, color="blue", lw=0.5)
     ax4.set_xlim(45, -15)
     ax4.spines['top'].set_edgecolor('blue')
 
