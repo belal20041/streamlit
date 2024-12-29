@@ -60,7 +60,6 @@ def show_page():
     st.title("Welly Multi Well Project")
 
     uploaded_files = st.file_uploader("Upload LAS files", type=["las"], accept_multiple_files=True)
-    rate = st.number_input("Enter rate for calculations", min_value=0.0, step=0.1)
     if uploaded_files:
         wells = load_wells(uploaded_files)
         st.success(f"{len(wells)} wells loaded successfully")
