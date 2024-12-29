@@ -68,7 +68,6 @@ def show_page():
             "Select what to display:",
             ["Well Details", "GR Curves", "RHOB Curves", "Well Locations Map"]
         )
-
         if "Well Details" in display_options:
             show_well_details(wells)
 
