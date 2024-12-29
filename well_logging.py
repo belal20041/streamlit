@@ -11,7 +11,7 @@ def load_data(uploaded_file):
         str_io = StringIO(bytes_data.decode('Windows-1252'))
         las_file = lasio.read(str_io)
         well_data = las_file.df()
-        well_data['DEPTH'] = well_data.index
+
         return las_file, well_data
     return None, None
 
