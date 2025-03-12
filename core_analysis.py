@@ -22,8 +22,7 @@ def load_data(uploaded_file, file_type='las'):
     return None, None
 
 def plot_bokeh_subplots(core_data, well_data):
-    # ------------------------------------------
-    # LEFT COLUMN FIGURES
+    # 1. LEFT COLUMN FIGURES
     # p1: Scatter plot of Core Porosity vs. Depth.
     p1 = figure(
         title="Core Porosity vs. Depth (Scatter)",
@@ -32,23 +31,30 @@ def plot_bokeh_subplots(core_data, well_data):
         width=400, height=400, 
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
-    p1.scatter(core_data["CPOR"], core_data["DEPTH"],
-               color="red", size=8, legend_label="Core Porosity")
+    try:
+        p1.scatter(core_data["CPOR"], core_data["DEPTH"],
+                   color="red", size=8, legend_label="Core Porosity")
+    except Exception as e:
+        st.error("Error plotting CPOR scatter: " + str(e))
     p1.xaxis.axis_label = "Porosity (%)"
     p1.yaxis.axis_label = "Depth (ft)"
-    
-    # p1_extra: CPOR Trend Line (line plot with axes swapped to mimic the twin-axes effect).
+
+    # p1_extra: CPOR Trend Line (line plot with swapped axes to mimic twin axes).
     p1_extra = figure(
         title="CPOR Trend (Line)",
         width=400, height=400,
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
-    p1_extra.line(core_data["DEPTH"], core_data["CPOR"],
-                  color="green", line_width=2, legend_label="CPOR Trend")
+    try:
+        p1_extra.line(core_data["DEPTH"], core_data["CPOR"],
+                      color="green", line_width=2, legend_label="CPOR Trend")
+    except Exception as e:
+        st.error("Error plotting CPOR trend: " + str(e))
     p1_extra.xaxis.axis_label = "Depth (ft)"
     p1_extra.yaxis.axis_label = "Porosity (%)"
-    
+
     # p1c: Optional plot for PHIF (NEU) vs. Depth from well data.
+    p1c = None
     if well_data is not None and 'PHIF' in well_data.columns:
         p1c = figure(
             title="PHIF (NEU) vs. Depth",
@@ -57,16 +63,16 @@ def plot_bokeh_subplots(core_data, well_data):
             width=400, height=400, 
             tools="pan,wheel_zoom,box_zoom,reset,save"
         )
-        p1c.line(well_data["PHIF"], well_data["DEPTH"],
-                 color="blue", line_width=1, legend_label="PHIF")
+        try:
+            p1c.line(well_data["PHIF"], well_data["DEPTH"],
+                     color="blue", line_width=1, legend_label="PHIF")
+        except Exception as e:
+            st.error("Error plotting PHIF: " + str(e))
         p1c.xaxis.axis_label = "NEU (Well Data)"
         p1c.yaxis.axis_label = "Depth (ft)"
-    else:
-        p1c = None
 
-    # ------------------------------------------
-    # CENTER COLUMN FIGURE
-    # p2: Core Permeability vs. Depth (log x-axis).
+    # 2. CENTER COLUMN FIGURE
+    # p2: Core Permeability vs. Depth with logarithmic x-axis.
     p2 = figure(
         title="Core Permeability vs. Depth",
         x_axis_type="log",
@@ -75,13 +81,15 @@ def plot_bokeh_subplots(core_data, well_data):
         width=400, height=400, 
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
-    p2.scatter(core_data["CKHG"], core_data["DEPTH"],
-               color="blue", size=8, legend_label="Core Permeability")
+    try:
+        p2.scatter(core_data["CKHG"], core_data["DEPTH"],
+                   color="blue", size=8, legend_label="Core Permeability")
+    except Exception as e:
+        st.error("Error plotting Core Permeability: " + str(e))
     p2.xaxis.axis_label = "Permeability (mD)"
     p2.yaxis.axis_label = "Depth (ft)"
-    
-    # ------------------------------------------
-    # RIGHT COLUMN FIGURES
+
+    # 3. RIGHT COLUMN FIGURES
     # p3: Poro-Perm Scatter Plot (Core Porosity vs. Core Permeability).
     p3 = figure(
         title="Poro-Perm Scatter Plot",
@@ -90,11 +98,14 @@ def plot_bokeh_subplots(core_data, well_data):
         width=400, height=300, 
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
-    p3.scatter(core_data["CPOR"], core_data["CKHG"],
-               color="purple", size=8, alpha=0.5, legend_label="Poro-Perm")
+    try:
+        p3.scatter(core_data["CPOR"], core_data["CKHG"],
+                   color="purple", size=8, alpha=0.5, legend_label="Poro-Perm")
+    except Exception as e:
+        st.error("Error plotting Poro-Perm scatter: " + str(e))
     p3.xaxis.axis_label = "Core Porosity (%)"
     p3.yaxis.axis_label = "Core Permeability (mD)"
-    
+
     # p4: Histogram for Core Porosity.
     hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
     p4 = figure(
@@ -107,8 +118,9 @@ def plot_bokeh_subplots(core_data, well_data):
             legend_label="Porosity Histogram")
     p4.xaxis.axis_label = "Core Porosity (%)"
     p4.yaxis.axis_label = "Count"
-    
+
     # p5: Histogram for Core Grain Density (if available).
+    p5 = None
     if 'CGD' in core_data.columns:
         hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
         p5 = figure(
@@ -121,27 +133,25 @@ def plot_bokeh_subplots(core_data, well_data):
                 legend_label="Grain Density")
         p5.xaxis.axis_label = "Core Grain Density"
         p5.yaxis.axis_label = "Count"
-    else:
-        p5 = None
-    
-    # ------------------------------------------
-    # Use Streamlit's column layout to place the figures.
+
+    # ----------------------------------------------------
+    # Use Streamlit's columns to display the figures separately.
     col_left, col_center, col_right = st.columns(3)
     
     with col_left:
-        st.bokeh_chart(p1, use_container_width=True)
+        st.bokeh_chart(p1)
         if p1c is not None:
-            st.bokeh_chart(p1c, use_container_width=True)
-        st.bokeh_chart(p1_extra, use_container_width=True)
+            st.bokeh_chart(p1c)
+        st.bokeh_chart(p1_extra)
     
     with col_center:
-        st.bokeh_chart(p2, use_container_width=True)
+        st.bokeh_chart(p2)
     
     with col_right:
-        st.bokeh_chart(p3, use_container_width=True)
-        st.bokeh_chart(p4, use_container_width=True)
+        st.bokeh_chart(p3)
+        st.bokeh_chart(p4)
         if p5 is not None:
-            st.bokeh_chart(p5, use_container_width=True)
+            st.bokeh_chart(p5)
 
 def show_page():
     st.title("Well Logging Analysis – Bokeh Visualizations")
