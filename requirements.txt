@@ -7,3 +7,4 @@ setuptools
 openpyxl
 folium
 streamlit_folium
+plotly
