@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 from io import StringIO
 import lasio
 
@@ -8,9 +9,11 @@ def load_data(uploaded_file, file_type='las'):
     if uploaded_file:
         bytes_data = uploaded_file.read()
         if file_type == 'las':
+            # Decode using Windows-1252 encoding to support LAS files
             str_io = StringIO(bytes_data.decode('Windows-1252'))
             las_file = lasio.read(str_io)
             well_data = las_file.df()
+            # Create a DEPTH column from the index for plotting
             well_data['DEPTH'] = well_data.index
             return las_file, well_data
         elif file_type == 'csv':
@@ -18,68 +21,100 @@ def load_data(uploaded_file, file_type='las'):
             return None, df
     return None, None
 
-def plot_subplots(core_data, well_data):
-    fig = plt.figure(figsize=(10, 10))
-    ax1 = plt.subplot2grid(shape=(3, 3), loc=(0, 0), rowspan=3)
-    ax2 = plt.subplot2grid(shape=(3, 3), loc=(0, 1), rowspan=3)
-    ax3 = plt.subplot2grid(shape=(3, 3), loc=(0, 2))
-    ax4 = plt.subplot2grid(shape=(3, 3), loc=(1, 2))
-    ax5 = plt.subplot2grid(shape=(3, 3), loc=(2, 2))
-    ax6 = ax1.twiny()
-
+def plot_interactive(core_data, well_data):
+    # Chart 1: Core Porosity vs. Depth with an overlay of PHIF (from well data) using a secondary x-axis.
     if 'CPOR' in core_data.columns:
-        ax1.scatter(core_data["CPOR"], core_data["DEPTH"], marker='o', c='red')
-        ax1.set_xlim(0, 50)
-        ax1.set_ylim(4010, 3825)
-        ax1.set_title('Core Porosity')
-        ax1.set_xlabel('Porosity (%)')
-        ax1.set_ylabel('Depth (ft)')
-        ax1.grid()
+        fig1 = go.Figure()
 
-    ax1_twin = ax1.twinx()
-    if 'CPOR' in core_data.columns:
-        ax1_twin.plot(core_data["DEPTH"], core_data["CPOR"], color='green', linewidth=2)
-        ax1_twin.set_ylabel('CPOR Line', color='green')
-        ax1_twin.tick_params(axis='y', labelcolor='green')
+        # Trace for core porosity from core_data
+        fig1.add_trace(go.Scatter(
+            x=core_data["CPOR"],
+            y=core_data["DEPTH"],
+            mode='markers',
+            marker=dict(color='red'),
+            name='Core Porosity'
+        ))
 
+        # If well_data is provided and contains PHIF, add a trace for it
+        if well_data is not None and 'PHIF' in well_data.columns:
+            fig1.add_trace(go.Scatter(
+                x=well_data["PHIF"],
+                y=well_data["DEPTH"],
+                mode='lines',
+                line=dict(color='blue', width=2),
+                name='PHIF (Well Data)',
+                xaxis='x2'
+            ))
+            # Define a secondary x-axis that overlays the primary x-axis
+            fig1.update_layout(
+                xaxis2=dict(
+                    overlaying='x',
+                    side='top',
+                    title='NEU (Well Data)',
+                    range=[0, 0.4]
+                )
+            )
+        
+        fig1.update_layout(
+            title="Core Porosity vs. Depth and PHIF vs. Depth",
+            xaxis=dict(title="Core Porosity (%)", range=[0, 50]),
+            yaxis=dict(title="Depth (ft)", autorange='reversed'),
+            legend=dict(x=0.02, y=0.98)
+        )
+        st.plotly_chart(fig1, use_container_width=True)
+
+    # Chart 2: Core Permeability vs. Depth (log-scaled x-axis)
     if 'CKHG' in core_data.columns:
-        ax2.scatter(core_data["CKHG"], core_data["DEPTH"], marker='o', c='blue')
-        ax2.set_xlim(0.01, 100000)
-        ax2.set_xscale('log')
-        ax2.set_ylim(4010, 3825)
-        ax2.set_title('Core Permeability')
-        ax2.set_xlabel('Permeability (mD)')
-        ax2.grid()
+        fig2 = px.scatter(
+            core_data,
+            x="CKHG", 
+            y="DEPTH",
+            title="Core Permeability vs. Depth",
+            labels={"CKHG": "Permeability (mD)", "DEPTH": "Depth (ft)"},
+            log_x=True
+        )
+        fig2.update_yaxes(autorange="reversed")
+        st.plotly_chart(fig2, use_container_width=True)
 
+    # Chart 3: Poro-Perm Scatter Plot (plotting Core Porosity vs. Core Permeability with log-scaled y-axis)
     if 'CPOR' in core_data.columns and 'CKHG' in core_data.columns:
-        ax3.scatter(core_data["CPOR"], core_data["CKHG"], marker='o', alpha=0.5)
-        ax3.set_yscale('log')
-        ax3.set_xlim(0, 50)
-        ax3.set_title('Poro-Perm Scatter Plot')
-        ax3.set_xlabel('Core Porosity (%)')
-        ax3.set_ylabel('Core Permeability (mD)')
-        ax3.grid()
+        fig3 = px.scatter(
+            core_data,
+            x="CPOR",
+            y="CKHG",
+            title="Core Porosity vs. Permeability",
+            labels={"CPOR": "Core Porosity (%)", "CKHG": "Core Permeability (mD)"},
+            log_y=True
+        )
+        fig3.update_xaxes(range=[0, 50])
+        st.plotly_chart(fig3, use_container_width=True)
 
+    # Chart 4: Histogram for Core Porosity
     if 'CPOR' in core_data.columns:
-        ax4.hist(core_data["CPOR"].dropna(), bins=30, edgecolor='black', color='red', alpha=0.6)
-        ax4.set_xlabel('Core Porosity')
-        ax4.set_title('Porosity Histogram')
+        fig4 = px.histogram(
+            core_data,
+            x="CPOR",
+            nbins=30,
+            title="Core Porosity Histogram",
+            labels={"CPOR": "Core Porosity (%)"}
+        )
+        st.plotly_chart(fig4, use_container_width=True)
 
+    # Chart 5: Histogram for Core Grain Density
     if 'CGD' in core_data.columns:
-        ax5.hist(core_data["CGD"].dropna(), bins=30, edgecolor='black', color='blue', alpha=0.6)
-        ax5.set_xlabel('Core Grain Density')
-        ax5.set_title('Grain Density Histogram')
-
-    if 'PHIF' in well_data.columns:
-        ax6.plot(well_data['PHIF'], well_data['DEPTH'], color='blue', lw=0.5)
-        ax6.set_xlim(0, 0.4)
-        ax6.set_xlabel('NEU (Well Data)')
-
-    plt.tight_layout()
-    st.pyplot(fig)
+        fig5 = px.histogram(
+            core_data,
+            x="CGD",
+            nbins=30,
+            title="Core Grain Density Histogram",
+            labels={"CGD": "Core Grain Density"}
+        )
+        st.plotly_chart(fig5, use_container_width=True)
 
 def show_page():
     st.title("Well Logging Analysis")
+
+    # File uploaders for the LAS file (well data) and CSV (core data)
     uploaded_las = st.file_uploader("Upload your LAS file", type=["las"])
     uploaded_csv = st.file_uploader("Upload your Core Data CSV file", type=["csv"])
     las_file, well_data = load_data(uploaded_las, file_type='las')
@@ -87,9 +122,11 @@ def show_page():
 
     if core_data is not None:
         st.write("### Core Data Overview")
-        st.write(core_data.head())
-        st.write("### Subplots for Core Porosity, Core Permeability, Histograms, and PHIF vs Depth")
-        plot_subplots(core_data, well_data)
+        st.dataframe(core_data.head())
+        st.write("### Interactive Visualizations")
+        plot_interactive(core_data, well_data)
+    else:
+        st.info("Please upload your Core Data CSV file to view visualizations.")
 
 if __name__ == "__main__":
     show_page()
