@@ -10,16 +10,22 @@ def load_data(uploaded_file, file_type='las'):
     if uploaded_file:
         bytes_data = uploaded_file.read()
         if file_type == 'las':
-            # Decode using Windows-1252 encoding to support LAS files.
-            str_io = StringIO(bytes_data.decode('Windows-1252'))
-            las_file = lasio.read(str_io)
-            well_data = las_file.df()
-            # Create a DEPTH column from the index for plotting.
-            well_data['DEPTH'] = well_data.index
-            return las_file, well_data
+            try:
+                # Decode using Windows-1252 encoding to support LAS files.
+                str_io = StringIO(bytes_data.decode('Windows-1252'))
+                las_file = lasio.read(str_io)
+                well_data = las_file.df()
+                # Create a DEPTH column from the index for plotting.
+                well_data['DEPTH'] = well_data.index
+                return las_file, well_data
+            except Exception as e:
+                st.error(f"Error loading LAS file: {e}")
         elif file_type == 'csv':
-            df = pd.read_csv(StringIO(bytes_data.decode('utf-8')))
-            return None, df
+            try:
+                df = pd.read_csv(StringIO(bytes_data.decode('utf-8')))
+                return None, df
+            except Exception as e:
+                st.error(f"Error loading CSV file: {e}")
     return None, None
 
 # Function to plot Bokeh subplots
@@ -37,7 +43,7 @@ def plot_bokeh_subplots(core_data, well_data):
         p1.scatter(core_data["CPOR"], core_data["DEPTH"],
                    color="red", size=8, legend_label="Core Porosity")
     except Exception as e:
-        st.error("Error plotting CPOR scatter: " + str(e))
+        st.error(f"Error plotting CPOR scatter: {e}")
     p1.xaxis.axis_label = "Porosity (%)"
     p1.yaxis.axis_label = "Depth (ft)"
 
@@ -51,7 +57,7 @@ def plot_bokeh_subplots(core_data, well_data):
         p1_extra.line(core_data["DEPTH"], core_data["CPOR"],
                       color="green", line_width=2, legend_label="CPOR Trend")
     except Exception as e:
-        st.error("Error plotting CPOR trend: " + str(e))
+        st.error(f"Error plotting CPOR trend: {e}")
     p1_extra.xaxis.axis_label = "Depth (ft)"
     p1_extra.yaxis.axis_label = "Porosity (%)"
 
@@ -69,7 +75,7 @@ def plot_bokeh_subplots(core_data, well_data):
             p1c.line(well_data["PHIF"], well_data["DEPTH"],
                      color="blue", line_width=1, legend_label="PHIF")
         except Exception as e:
-            st.error("Error plotting PHIF: " + str(e))
+            st.error(f"Error plotting PHIF: {e}")
         p1c.xaxis.axis_label = "NEU (Well Data)"
         p1c.yaxis.axis_label = "Depth (ft)"
 
@@ -87,7 +93,7 @@ def plot_bokeh_subplots(core_data, well_data):
         p2.scatter(core_data["CKHG"], core_data["DEPTH"],
                    color="blue", size=8, legend_label="Core Permeability")
     except Exception as e:
-        st.error("Error plotting Core Permeability: " + str(e))
+        st.error(f"Error plotting Core Permeability: {e}")
     p2.xaxis.axis_label = "Permeability (mD)"
     p2.yaxis.axis_label = "Depth (ft)"
 
@@ -97,52 +103,50 @@ def plot_bokeh_subplots(core_data, well_data):
         title="Poro-Perm Scatter Plot",
         x_range=(0, 50),
         y_axis_type="log",
-        width=400, height=300, 
+        width=400, height=300,
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
     try:
         p3.scatter(core_data["CPOR"], core_data["CKHG"],
                    color="purple", size=8, alpha=0.5, legend_label="Poro-Perm")
     except Exception as e:
-        st.error("Error plotting Poro-Perm scatter: " + str(e))
+        st.error(f"Error plotting Poro-Perm scatter: {e}")
     p3.xaxis.axis_label = "Core Porosity (%)"
     p3.yaxis.axis_label = "Core Permeability (mD)"
 
     # p4: Histogram for Core Porosity.
-    hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
-    p4 = figure(
-        title="Core Porosity Histogram",
-        width=400, height=300,
-        tools="pan,wheel_zoom,box_zoom,reset,save"
-    )
     try:
+        hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
+        p4 = figure(
+            title="Core Porosity Histogram",
+            width=400, height=300,
+            tools="pan,wheel_zoom,box_zoom,reset,save"
+        )
         p4.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
                 fill_color="red", line_color="black", alpha=0.6,
                 legend_label="Porosity Histogram")
+        p4.xaxis.axis_label = "Core Porosity (%)"
+        p4.yaxis.axis_label = "Count"
     except Exception as e:
-        st.error("Error plotting Porosity Histogram: " + str(e))
-        
-    p4.xaxis.axis_label = "Core Porosity (%)"
-    p4.yaxis.axis_label = "Count"
+        st.error(f"Error plotting Porosity Histogram: {e}")
 
     # p5: Histogram for Core Grain Density (if available).
     p5 = None
     if 'CGD' in core_data.columns:
-        hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
-        p5 = figure(
-            title="Core Grain Density Histogram",
-            width=400, height=300,
-            tools="pan,wheel_zoom,box_zoom,reset,save"
-        )
         try:
+            hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
+            p5 = figure(
+                title="Core Grain Density Histogram",
+                width=400, height=300,
+                tools="pan,wheel_zoom,box_zoom,reset,save"
+            )
             p5.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
                     fill_color="blue", line_color="black", alpha=0.6,
                     legend_label="Grain Density")
+            p5.xaxis.axis_label = "Core Grain Density"
+            p5.yaxis.axis_label = "Count"
         except Exception as e:
-            st.error("Error plotting Grain Density Histogram: " + str(e))
-            
-        p5.xaxis.axis_label = "Core Grain Density"
-        p5.yaxis.axis_label = "Count"
+            st.error(f"Error plotting Grain Density Histogram: {e}")
 
     # ----------------------------------------------------
     # Use Streamlit's columns to display the figures separately.
@@ -191,5 +195,4 @@ def show_page():
 
 # Entry point for the Streamlit app
 if __name__ == "__main__":
-    
    show_page()
