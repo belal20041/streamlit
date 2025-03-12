@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from bokeh.plotting import figure
+from bokeh.layouts import row, column
 from io import StringIO
 import lasio
 
@@ -10,10 +10,11 @@ def load_data(uploaded_file, file_type='las'):
     if uploaded_file:
         bytes_data = uploaded_file.read()
         if file_type == 'las':
+            # Decode using Windows-1252 encoding to support LAS files
             str_io = StringIO(bytes_data.decode('Windows-1252'))
             las_file = lasio.read(str_io)
             well_data = las_file.df()
-            # Create a DEPTH column for plotting
+            # Create a DEPTH column from the index for plotting
             well_data['DEPTH'] = well_data.index
             return las_file, well_data
         elif file_type == 'csv':
@@ -21,150 +22,102 @@ def load_data(uploaded_file, file_type='las'):
             return None, df
     return None, None
 
-def plot_interactive_subplots(core_data, well_data):
-    # Create a 3x3 grid:
-    # - Left column spans all 3 rows and supports a secondary y-axis.
-    # - Middle column spans all 3 rows.
-    # - Right column contains three individual subplots.
-    fig = make_subplots(
-        rows=3, cols=3,
-        specs=[
-            [{"rowspan": 3, "secondary_y": True}, {"rowspan": 3}, {}],
-            [None, None, {}],
-            [None, None, {}]
-        ],
-        horizontal_spacing=0.08,
-        vertical_spacing=0.08
-    )
+def plot_bokeh_subplots(core_data, well_data):
+    # -------------------------------
+    # Left column: Two figures (or two figures in one row)
+    # Figure p1: Core Porosity vs. Depth (Scatter)
+    p1 = figure(title="Core Porosity vs. Depth (Scatter)",
+                x_range=(0, 50), y_range=(4010, 3825),
+                width=400, height=400, tools="pan,wheel_zoom,box_zoom,reset,save")
+    p1.scatter(core_data["CPOR"], core_data["DEPTH"], color="red", size=8,
+               legend_label="Core Porosity")
+    p1.xaxis.axis_label = "Porosity (%)"
+    p1.yaxis.axis_label = "Depth (ft)"
     
-    # ----- Subplot (1,1): Core Porosity vs. Depth with twin axes -----
-    if 'CPOR' in core_data.columns:
-        # Trace 1: Red scatter (Core Porosity vs. Depth)
-        fig.add_trace(
-            go.Scatter(
-                x=core_data["CPOR"],
-                y=core_data["DEPTH"],
-                mode='markers',
-                marker=dict(color='red'),
-                name="Core Porosity"
-            ),
-            row=1, col=1, secondary_y=False
-        )
-        # Trace 2: Green line on secondary y-axis.
-        # (Note: In your original code this trace plots core_data["DEPTH"] on x and CPOR on y.)
-        fig.add_trace(
-            go.Scatter(
-                x=core_data["DEPTH"],
-                y=core_data["CPOR"],
-                mode='lines',
-                line=dict(color='green', width=2),
-                name="CPOR Line"
-            ),
-            row=1, col=1, secondary_y=True
-        )
-        
-        # Configure axes for cell (1,1)
-        fig.update_xaxes(title_text="Core Porosity (%)", range=[0, 50], row=1, col=1)
-        fig.update_yaxes(title_text="Depth (ft)", range=[4010, 3825], autorange="reversed", row=1, col=1, secondary_y=False)
-        fig.update_yaxes(title_text="CPOR Line", row=1, col=1, secondary_y=True)
-        
-        # Trace 3: Blue line for PHIF vs. Depth on an overlaid twin x-axis (if available).
-        if well_data is not None and 'PHIF' in well_data.columns:
-            # Add the PHIF trace and assign it to a new x-axis.
-            fig.add_trace(
-                go.Scatter(
-                    x=well_data["PHIF"],
-                    y=well_data["DEPTH"],
-                    mode='lines',
-                    line=dict(color='blue', width=1),
-                    name="PHIF (Well Data)"
-                ),
-                row=1, col=1, secondary_y=False
-            )
-            # Force this trace to use a new x-axis ("xaxis3").
-            fig.data[-1].xaxis = "x3"
-            # Define xaxis3 to overlay the main x-axis (xaxis1) and appear on top.
-            fig.update_layout(
-                xaxis3=dict(
-                    overlaying="x1",
-                    side='top',
-                    title="NEU (Well Data)",
-                    range=[0, 0.4]
-                )
-            )
+    # Figure p1_extra: CPOR Trend Line (Line plot of CPOR vs. Depth)
+    p1_extra = figure(title="CPOR Trend (Line)", width=400, height=400,
+                      tools="pan,wheel_zoom,box_zoom,reset,save")
+    # Note: In the original, the x and y are swapped.
+    p1_extra.line(core_data["DEPTH"], core_data["CPOR"], color="green", line_width=2,
+                  legend_label="CPOR Trend")
+    p1_extra.xaxis.axis_label = "Depth (ft)"
+    p1_extra.yaxis.axis_label = "Porosity (%)"
     
-    # ----- Subplot (1,2): Core Permeability vs. Depth -----
-    if 'CKHG' in core_data.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=core_data["CKHG"],
-                y=core_data["DEPTH"],
-                mode='markers',
-                marker=dict(color='blue'),
-                name="Core Permeability"
-            ),
-            row=1, col=2
-        )
-        fig.update_xaxes(title_text="Permeability (mD)", type="log",
-                         range=[np.log10(0.01), np.log10(100000)], row=1, col=2)
-        fig.update_yaxes(title_text="Depth (ft)", range=[4010, 3825], autorange="reversed", row=1, col=2)
+    # (Optional) Figure p1c: PHIF (NEU) vs. Depth from well data.
+    if well_data is not None and 'PHIF' in well_data.columns:
+        p1c = figure(title="PHIF (NEU) vs. Depth", x_range=(0, 0.4), y_range=(4010, 3825),
+                     width=400, height=400, tools="pan,wheel_zoom,box_zoom,reset,save")
+        p1c.line(well_data["PHIF"], well_data["DEPTH"], color="blue", line_width=1,
+                 legend_label="PHIF")
+        p1c.xaxis.axis_label = "NEU (Well Data)"
+        p1c.yaxis.axis_label = "Depth (ft)"
+    else:
+        p1c = None
+
+    # For the left column, if p1c exists, place p1 and p1c side-by-side; else show p1 only.
+    if p1c is not None:
+        left_top = row(p1, p1c)
+    else:
+        left_top = p1
+    # Then place the CPOR trend plot below:
+    left_col = column(left_top, p1_extra)
     
-    # ----- Subplot (1,3): Poro-Perm Scatter Plot (Core Porosity vs. Core Permeability) -----
-    if 'CPOR' in core_data.columns and 'CKHG' in core_data.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=core_data["CPOR"],
-                y=core_data["CKHG"],
-                mode='markers',
-                marker=dict(opacity=0.5),
-                name="Poro-Perm Scatter"
-            ),
-            row=1, col=3
-        )
-        fig.update_xaxes(title_text="Core Porosity (%)", range=[0, 50], row=1, col=3)
-        fig.update_yaxes(title_text="Core Permeability (mD)", type="log", row=1, col=3)
+    # -------------------------------
+    # Center column: Core Permeability vs. Depth
+    p2 = figure(title="Core Permeability vs. Depth",
+                x_axis_type="log",
+                x_range=(0.01, 100000), y_range=(4010, 3825),
+                width=400, height=400, tools="pan,wheel_zoom,box_zoom,reset,save")
+    p2.scatter(core_data["CKHG"], core_data["DEPTH"], color="blue", size=8,
+               legend_label="Core Permeability")
+    p2.xaxis.axis_label = "Permeability (mD)"
+    p2.yaxis.axis_label = "Depth (ft)"
     
-    # ----- Subplot (2,3): Histogram for Core Porosity -----
-    if 'CPOR' in core_data.columns:
-        fig.add_trace(
-            go.Histogram(
-                x=core_data["CPOR"].dropna(),
-                nbinsx=30,
-                marker_color="red",
-                opacity=0.6,
-                name="Porosity Histogram"
-            ),
-            row=2, col=3
-        )
-        fig.update_xaxes(title_text="Core Porosity", row=2, col=3)
-        fig.update_yaxes(title_text="Count", row=2, col=3)
+    # -------------------------------
+    # Right column: Three plots stacked vertically
+    # Figure p3: Poro-Perm Scatter Plot (Core Porosity vs. Core Permeability)
+    p3 = figure(title="Poro-Perm Scatter Plot", x_range=(0, 50),
+                y_axis_type="log", width=400, height=300,
+                tools="pan,wheel_zoom,box_zoom,reset,save")
+    p3.scatter(core_data["CPOR"], core_data["CKHG"], color="purple", size=8,
+               alpha=0.5, legend_label="Poro-Perm")
+    p3.xaxis.axis_label = "Core Porosity (%)"
+    p3.yaxis.axis_label = "Core Permeability (mD)"
     
-    # ----- Subplot (3,3): Histogram for Core Grain Density -----
+    # Figure p4: Histogram for Core Porosity
+    hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
+    p4 = figure(title="Core Porosity Histogram", width=400, height=300,
+                tools="pan,wheel_zoom,box_zoom,reset,save")
+    p4.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
+            fill_color="red", line_color="black", alpha=0.6)
+    p4.xaxis.axis_label = "Core Porosity (%)"
+    p4.yaxis.axis_label = "Count"
+    
+    # Figure p5: Histogram for Core Grain Density (if available)
     if 'CGD' in core_data.columns:
-        fig.add_trace(
-            go.Histogram(
-                x=core_data["CGD"].dropna(),
-                nbinsx=30,
-                marker_color="blue",
-                opacity=0.6,
-                name="Grain Density Histogram"
-            ),
-            row=3, col=3
-        )
-        fig.update_xaxes(title_text="Core Grain Density", row=3, col=3)
-        fig.update_yaxes(title_text="Count", row=3, col=3)
+        hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
+        p5 = figure(title="Core Grain Density Histogram", width=400, height=300,
+                    tools="pan,wheel_zoom,box_zoom,reset,save")
+        p5.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
+                fill_color="blue", line_color="black", alpha=0.6)
+        p5.xaxis.axis_label = "Core Grain Density"
+        p5.yaxis.axis_label = "Count"
+    else:
+        p5 = None
+
+    # Arrange right column vertically
+    if p5 is not None:
+        right_col = column(p3, p4, p5)
+    else:
+        right_col = column(p3, p4)
     
-    fig.update_layout(
-        height=800,
-        width=1200,
-        title_text="Core Data Visualizations",
-        showlegend=True,
-        margin=dict(l=20, r=20, t=40, b=20)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # -------------------------------
+    # Final layout: three columns — left, center, right.
+    final_layout = row(left_col, p2, right_col)
+    st.bokeh_chart(final_layout, use_container_width=True)
 
 def show_page():
-    st.title("Well Logging Analysis")
+    st.title("Well Logging Analysis - Bokeh Visualizations")
     uploaded_las = st.file_uploader("Upload your LAS file", type=["las"])
     uploaded_csv = st.file_uploader("Upload your Core Data CSV file", type=["csv"])
     las_file, well_data = load_data(uploaded_las, file_type='las')
@@ -173,8 +126,8 @@ def show_page():
     if core_data is not None:
         st.write("### Core Data Overview")
         st.dataframe(core_data.head())
-        st.write("### Subplots for Core Porosity, Core Permeability, Histograms, and Poro-Perm Scatter")
-        plot_interactive_subplots(core_data, well_data)
+        st.write("### Bokeh Visualizations")
+        plot_bokeh_subplots(core_data, well_data)
     else:
         st.info("Please upload your Core Data CSV file to view visualizations.")
 
