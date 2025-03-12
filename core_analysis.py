@@ -5,6 +5,7 @@ from bokeh.plotting import figure
 from io import StringIO
 import lasio
 
+# Function to load data from uploaded files
 def load_data(uploaded_file, file_type='las'):
     if uploaded_file:
         bytes_data = uploaded_file.read()
@@ -21,13 +22,14 @@ def load_data(uploaded_file, file_type='las'):
             return None, df
     return None, None
 
+# Function to plot Bokeh subplots
 def plot_bokeh_subplots(core_data, well_data):
     # 1. LEFT COLUMN FIGURES
     # p1: Scatter plot of Core Porosity vs. Depth.
     p1 = figure(
         title="Core Porosity vs. Depth (Scatter)",
         x_range=(0, 50), 
-        y_range=(4010, 3825),
+        y_range=(3825, 4010),  # Corrected range order
         width=400, height=400, 
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
@@ -59,7 +61,7 @@ def plot_bokeh_subplots(core_data, well_data):
         p1c = figure(
             title="PHIF (NEU) vs. Depth",
             x_range=(0, 0.4), 
-            y_range=(4010, 3825),
+            y_range=(3825, 4010),  # Corrected range order
             width=400, height=400, 
             tools="pan,wheel_zoom,box_zoom,reset,save"
         )
@@ -77,7 +79,7 @@ def plot_bokeh_subplots(core_data, well_data):
         title="Core Permeability vs. Depth",
         x_axis_type="log",
         x_range=(0.01, 100000), 
-        y_range=(4010, 3825),
+        y_range=(3825, 4010),  # Corrected range order
         width=400, height=400, 
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
@@ -110,12 +112,16 @@ def plot_bokeh_subplots(core_data, well_data):
     hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
     p4 = figure(
         title="Core Porosity Histogram",
-        width=400, height=300, 
+        width=400, height=300,
         tools="pan,wheel_zoom,box_zoom,reset,save"
     )
-    p4.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
-            fill_color="red", line_color="black", alpha=0.6,
-            legend_label="Porosity Histogram")
+    try:
+        p4.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
+                fill_color="red", line_color="black", alpha=0.6,
+                legend_label="Porosity Histogram")
+    except Exception as e:
+        st.error("Error plotting Porosity Histogram: " + str(e))
+        
     p4.xaxis.axis_label = "Core Porosity (%)"
     p4.yaxis.axis_label = "Count"
 
@@ -125,12 +131,16 @@ def plot_bokeh_subplots(core_data, well_data):
         hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
         p5 = figure(
             title="Core Grain Density Histogram",
-            width=400, height=300, 
+            width=400, height=300,
             tools="pan,wheel_zoom,box_zoom,reset,save"
         )
-        p5.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
-                fill_color="blue", line_color="black", alpha=0.6,
-                legend_label="Grain Density")
+        try:
+            p5.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
+                    fill_color="blue", line_color="black", alpha=0.6,
+                    legend_label="Grain Density")
+        except Exception as e:
+            st.error("Error plotting Grain Density Histogram: " + str(e))
+            
         p5.xaxis.axis_label = "Core Grain Density"
         p5.yaxis.axis_label = "Count"
 
@@ -153,21 +163,33 @@ def plot_bokeh_subplots(core_data, well_data):
         if p5 is not None:
             st.bokeh_chart(p5)
 
+# Main function to display the page
 def show_page():
     st.title("Well Logging Analysis – Bokeh Visualizations")
+    
     uploaded_las = st.file_uploader("Upload your LAS File", type=["las"])
+    
     uploaded_csv = st.file_uploader("Upload your Core Data CSV File", type=["csv"])
     
     las_file, well_data = load_data(uploaded_las, file_type='las')
+    
     _, core_data = load_data(uploaded_csv, file_type='csv')
     
     if core_data is not None:
+        
         st.write("### Core Data Overview")
+        
         st.dataframe(core_data.head())
+        
         st.write("### Bokeh Visualizations")
+        
         plot_bokeh_subplots(core_data, well_data)
+    
     else:
+        
         st.info("Please upload your Core Data CSV file to view visualizations.")
 
+# Entry point for the Streamlit app
 if __name__ == "__main__":
-    show_page()
+    
+   show_page()
