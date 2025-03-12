@@ -1,10 +1,10 @@
 streamlit==1.41.1
 pandas
-matplotlib
+numpy
+bokeh
 lasio
 welly
 setuptools
 openpyxl
 folium
 streamlit_folium
-plotly
