@@ -22,11 +22,11 @@ def load_data(uploaded_file, file_type='las'):
     return None, None
 
 def plot_interactive(core_data, well_data):
-    # Chart 1: Core Porosity vs. Depth with an overlay of PHIF (from well data) using a secondary x-axis.
+    # Chart 1: Core Porosity vs. Depth with an overlay of PHIF (from well data) on a secondary x-axis.
     if 'CPOR' in core_data.columns:
         fig1 = go.Figure()
-
-        # Trace for core porosity from core_data
+        
+        # Scatter for Core Porosity from core_data
         fig1.add_trace(go.Scatter(
             x=core_data["CPOR"],
             y=core_data["DEPTH"],
@@ -34,18 +34,18 @@ def plot_interactive(core_data, well_data):
             marker=dict(color='red'),
             name='Core Porosity'
         ))
-
-        # If well_data is provided and contains PHIF, add a trace for it
+        
+        # If well_data is provided and contains PHIF, plot it as a line on a secondary x-axis.
         if well_data is not None and 'PHIF' in well_data.columns:
             fig1.add_trace(go.Scatter(
                 x=well_data["PHIF"],
                 y=well_data["DEPTH"],
                 mode='lines',
-                line=dict(color='blue', width=2),
+                line=dict(color='blue', width=1),
                 name='PHIF (Well Data)',
                 xaxis='x2'
             ))
-            # Define a secondary x-axis that overlays the primary x-axis
+            # Define the secondary x-axis (displayed at the top)
             fig1.update_layout(
                 xaxis2=dict(
                     overlaying='x',
@@ -56,14 +56,14 @@ def plot_interactive(core_data, well_data):
             )
         
         fig1.update_layout(
-            title="Core Porosity vs. Depth and PHIF vs. Depth",
+            title="Core Porosity vs. Depth with PHIF Overlay",
             xaxis=dict(title="Core Porosity (%)", range=[0, 50]),
             yaxis=dict(title="Depth (ft)", autorange='reversed'),
             legend=dict(x=0.02, y=0.98)
         )
         st.plotly_chart(fig1, use_container_width=True)
 
-    # Chart 2: Core Permeability vs. Depth (log-scaled x-axis)
+    # Chart 2: Core Permeability vs. Depth (with a logarithmic x-axis)
     if 'CKHG' in core_data.columns:
         fig2 = px.scatter(
             core_data,
@@ -76,7 +76,7 @@ def plot_interactive(core_data, well_data):
         fig2.update_yaxes(autorange="reversed")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # Chart 3: Poro-Perm Scatter Plot (plotting Core Porosity vs. Core Permeability with log-scaled y-axis)
+    # Chart 3: Poro-Perm Scatter Plot (Core Porosity vs. Core Permeability)
     if 'CPOR' in core_data.columns and 'CKHG' in core_data.columns:
         fig3 = px.scatter(
             core_data,
@@ -117,9 +117,10 @@ def show_page():
     # File uploaders for the LAS file (well data) and CSV (core data)
     uploaded_las = st.file_uploader("Upload your LAS file", type=["las"])
     uploaded_csv = st.file_uploader("Upload your Core Data CSV file", type=["csv"])
+    
     las_file, well_data = load_data(uploaded_las, file_type='las')
     _, core_data = load_data(uploaded_csv, file_type='csv')
-
+    
     if core_data is not None:
         st.write("### Core Data Overview")
         st.dataframe(core_data.head())
