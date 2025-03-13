@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from bokeh.plotting import figure
 from io import StringIO
 import lasio
+import plotly.graph_objects as go
 
 # Function to load data from uploaded files
 def load_data(uploaded_file, file_type='las'):
@@ -28,148 +28,180 @@ def load_data(uploaded_file, file_type='las'):
                 st.error(f"Error loading CSV file: {e}")
     return None, None
 
-# Function to plot Bokeh subplots
-def plot_bokeh_subplots(core_data, well_data):
+# Function to plot Plotly subplots
+def plot_plotly_subplots(core_data, well_data):
     # 1. LEFT COLUMN FIGURES
-    # p1: Scatter plot of Core Porosity vs. Depth.
-    p1 = figure(
-        title="Core Porosity vs. Depth (Scatter)",
-        x_range=(0, 50), 
-        y_range=(3825, 4010),  # Corrected range order
-        width=400, height=400, 
-        tools="pan,wheel_zoom,box_zoom,reset,save"
-    )
+    # Scatter plot of Core Porosity vs. Depth.
     try:
-        p1.scatter(core_data["CPOR"], core_data["DEPTH"],
-                   color="red", size=8, legend_label="Core Porosity")
-    except Exception as e:
-        st.error(f"Error plotting CPOR scatter: {e}")
-    p1.xaxis.axis_label = "Porosity (%)"
-    p1.yaxis.axis_label = "Depth (ft)"
-
-    # p1_extra: CPOR Trend Line (line plot with swapped axes to mimic twin axes).
-    p1_extra = figure(
-        title="CPOR Trend (Line)",
-        width=400, height=400,
-        tools="pan,wheel_zoom,box_zoom,reset,save"
-    )
-    try:
-        p1_extra.line(core_data["DEPTH"], core_data["CPOR"],
-                      color="green", line_width=2, legend_label="CPOR Trend")
-    except Exception as e:
-        st.error(f"Error plotting CPOR trend: {e}")
-    p1_extra.xaxis.axis_label = "Depth (ft)"
-    p1_extra.yaxis.axis_label = "Porosity (%)"
-
-    # p1c: Optional plot for PHIF (NEU) vs. Depth from well data.
-    p1c = None
-    if well_data is not None and 'PHIF' in well_data.columns:
-        p1c = figure(
-            title="PHIF (NEU) vs. Depth",
-            x_range=(0, 0.4), 
-            y_range=(3825, 4010),  # Corrected range order
-            width=400, height=400, 
-            tools="pan,wheel_zoom,box_zoom,reset,save"
+        scatter_cpor_depth = go.Figure()
+        scatter_cpor_depth.add_trace(go.Scatter(
+            x=core_data["CPOR"], 
+            y=core_data["DEPTH"], 
+            mode='markers', 
+            marker=dict(color='red', size=8),
+            name="Core Porosity"
+        ))
+        scatter_cpor_depth.update_layout(
+            title="Core Porosity vs. Depth (Scatter)",
+            xaxis_title="Porosity (%)",
+            yaxis_title="Depth (ft)",
+            yaxis=dict(autorange="reversed"),
+            height=400,
+            width=400
         )
+    except Exception as e:
+        st.error(f"Error creating Core Porosity scatter plot: {e}")
+
+    # Line plot for CPOR Trend.
+    try:
+        line_cpor_trend = go.Figure()
+        line_cpor_trend.add_trace(go.Scatter(
+            x=core_data["DEPTH"], 
+            y=core_data["CPOR"], 
+            mode='lines', 
+            line=dict(color='green', width=2),
+            name="CPOR Trend"
+        ))
+        line_cpor_trend.update_layout(
+            title="CPOR Trend (Line)",
+            xaxis_title="Depth (ft)",
+            yaxis_title="Porosity (%)",
+            height=400,
+            width=400
+        )
+    except Exception as e:
+        st.error(f"Error creating CPOR trend line plot: {e}")
+
+    # Optional PHIF (NEU) vs. Depth line plot.
+    phif_plot = None
+    if well_data is not None and 'PHIF' in well_data.columns:
         try:
-            p1c.line(well_data["PHIF"], well_data["DEPTH"],
-                     color="blue", line_width=1, legend_label="PHIF")
+            phif_plot = go.Figure()
+            phif_plot.add_trace(go.Scatter(
+                x=well_data["PHIF"], 
+                y=well_data["DEPTH"], 
+                mode='lines',
+                line=dict(color='blue', width=1),
+                name="PHIF"
+            ))
+            phif_plot.update_layout(
+                title="PHIF (NEU) vs. Depth",
+                xaxis_title="NEU (Well Data)",
+                yaxis_title="Depth (ft)",
+                yaxis=dict(autorange="reversed"),
+                height=400,
+                width=400
+            )
         except Exception as e:
-            st.error(f"Error plotting PHIF: {e}")
-        p1c.xaxis.axis_label = "NEU (Well Data)"
-        p1c.yaxis.axis_label = "Depth (ft)"
+            st.error(f"Error creating PHIF plot: {e}")
 
     # 2. CENTER COLUMN FIGURE
-    # p2: Core Permeability vs. Depth with logarithmic x-axis.
-    p2 = figure(
-        title="Core Permeability vs. Depth",
-        x_axis_type="log",
-        x_range=(0.01, 100000), 
-        y_range=(3825, 4010),  # Corrected range order
-        width=400, height=400, 
-        tools="pan,wheel_zoom,box_zoom,reset,save"
-    )
+    # Core Permeability vs. Depth with logarithmic x-axis.
     try:
-        p2.scatter(core_data["CKHG"], core_data["DEPTH"],
-                   color="blue", size=8, legend_label="Core Permeability")
+        scatter_perm_depth = go.Figure()
+        scatter_perm_depth.add_trace(go.Scatter(
+            x=core_data["CKHG"], 
+            y=core_data["DEPTH"], 
+            mode='markers',
+            marker=dict(color='blue', size=8),
+            name="Core Permeability"
+        ))
+        scatter_perm_depth.update_layout(
+            title="Core Permeability vs. Depth",
+            xaxis_title="Permeability (mD)",
+            yaxis_title="Depth (ft)",
+            xaxis_type="log",
+            yaxis=dict(autorange="reversed"),
+            height=400,
+            width=400
+        )
     except Exception as e:
-        st.error(f"Error plotting Core Permeability: {e}")
-    p2.xaxis.axis_label = "Permeability (mD)"
-    p2.yaxis.axis_label = "Depth (ft)"
+        st.error(f"Error creating Core Permeability scatter plot: {e}")
 
     # 3. RIGHT COLUMN FIGURES
-    # p3: Poro-Perm Scatter Plot (Core Porosity vs. Core Permeability).
-    p3 = figure(
-        title="Poro-Perm Scatter Plot",
-        x_range=(0, 50),
-        y_axis_type="log",
-        width=400, height=300,
-        tools="pan,wheel_zoom,box_zoom,reset,save"
-    )
+    # Poro-Perm Scatter Plot.
     try:
-        p3.scatter(core_data["CPOR"], core_data["CKHG"],
-                   color="purple", size=8, alpha=0.5, legend_label="Poro-Perm")
-    except Exception as e:
-        st.error(f"Error plotting Poro-Perm scatter: {e}")
-    p3.xaxis.axis_label = "Core Porosity (%)"
-    p3.yaxis.axis_label = "Core Permeability (mD)"
-
-    # p4: Histogram for Core Porosity.
-    try:
-        hist, edges = np.histogram(core_data["CPOR"].dropna(), bins=30)
-        p4 = figure(
-            title="Core Porosity Histogram",
-            width=400, height=300,
-            tools="pan,wheel_zoom,box_zoom,reset,save"
+        poro_perm_scatter = go.Figure()
+        poro_perm_scatter.add_trace(go.Scatter(
+            x=core_data["CPOR"], 
+            y=core_data["CKHG"], 
+            mode='markers',
+            marker=dict(color='purple', size=8, opacity=0.5),
+            name="Poro-Perm"
+        ))
+        poro_perm_scatter.update_layout(
+            title="Poro-Perm Scatter Plot",
+            xaxis_title="Core Porosity (%)",
+            yaxis_title="Core Permeability (mD)",
+            yaxis_type="log",
+            height=300,
+            width=400
         )
-        p4.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
-                fill_color="red", line_color="black", alpha=0.6,
-                legend_label="Porosity Histogram")
-        p4.xaxis.axis_label = "Core Porosity (%)"
-        p4.yaxis.axis_label = "Count"
     except Exception as e:
-        st.error(f"Error plotting Porosity Histogram: {e}")
+        st.error(f"Error creating Poro-Perm scatter plot: {e}")
 
-    # p5: Histogram for Core Grain Density (if available).
-    p5 = None
+    # Histogram for Core Porosity.
+    try:
+        hist_cpor = go.Figure()
+        hist_cpor.add_trace(go.Histogram(
+            x=core_data["CPOR"],
+            nbinsx=30,
+            marker_color='red',
+            opacity=0.6,
+        ))
+        hist_cpor.update_layout(
+            title="Core Porosity Histogram",
+            xaxis_title="Core Porosity (%)",
+            yaxis_title="Count",
+            height=300,
+            width=400
+        )
+    except Exception as e:
+        st.error(f"Error creating Core Porosity histogram: {e}")
+
+    # Optional Histogram for Core Grain Density.
+    cgd_histogram = None
     if 'CGD' in core_data.columns:
         try:
-            hist2, edges2 = np.histogram(core_data["CGD"].dropna(), bins=30)
-            p5 = figure(
+            cgd_histogram = go.Figure()
+            cgd_histogram.add_trace(go.Histogram(
+                x=core_data["CGD"],
+                nbinsx=30,
+                marker_color='blue',
+                opacity=0.6,
+            ))
+            cgd_histogram.update_layout(
                 title="Core Grain Density Histogram",
-                width=400, height=300,
-                tools="pan,wheel_zoom,box_zoom,reset,save"
+                xaxis_title="Core Grain Density",
+                yaxis_title="Count",
+                height=300,
+                width=400
             )
-            p5.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
-                    fill_color="blue", line_color="black", alpha=0.6,
-                    legend_label="Grain Density")
-            p5.xaxis.axis_label = "Core Grain Density"
-            p5.yaxis.axis_label = "Count"
         except Exception as e:
-            st.error(f"Error plotting Grain Density Histogram: {e}")
+            st.error(f"Error creating Core Grain Density histogram: {e}")
 
     # ----------------------------------------------------
     # Use Streamlit's columns to display the figures separately.
     col_left, col_center, col_right = st.columns(3)
     
     with col_left:
-        st.bokeh_chart(p1)
-        if p1c is not None:
-            st.bokeh_chart(p1c)
-        st.bokeh_chart(p1_extra)
+        st.plotly_chart(scatter_cpor_depth)
+        if phif_plot is not None:
+           st.plotly_chart(phif_plot)
+        st.plotly_chart(line_cpor_trend)
     
     with col_center:
-        st.bokeh_chart(p2)
+       st.plotly_chart(scatter_perm_depth)
     
     with col_right:
-        st.bokeh_chart(p3)
-        st.bokeh_chart(p4)
-        if p5 is not None:
-            st.bokeh_chart(p5)
+       st.plotly_chart(poro_perm_scatter)
+       st.plotly_chart(hist_cpor)
+       if cgd_histogram is not None:
+           st.plotly_chart(cgd_histogram)
 
 # Main function to display the page
 def show_page():
-    st.title("Well Logging Analysis – Bokeh Visualizations")
+    st.title("Well Logging Analysis – Plotly Visualizations")
     
     uploaded_las = st.file_uploader("Upload your LAS File", type=["las"])
     
@@ -185,13 +217,13 @@ def show_page():
         
         st.dataframe(core_data.head())
         
-        st.write("### Bokeh Visualizations")
+        st.write("### Plotly Visualizations")
         
-        plot_bokeh_subplots(core_data, well_data)
+        plot_plotly_subplots(core_data, well_data)
     
     else:
         
-        st.info("Please upload your Core Data CSV file to view visualizations.")
+       st.info("Please upload your Core Data CSV file to view visualizations.")
 
 # Entry point for the Streamlit app
 if __name__ == "__main__":
