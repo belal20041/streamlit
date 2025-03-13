@@ -1,89 +1,94 @@
 import streamlit as st
-from io import StringIO
-import lasio
 import pandas as pd
 import matplotlib.pyplot as plt
+from io import StringIO
+import lasio
 
 # Function to load and process LAS file
-def load_data(uploaded_file):
-    """Load and process the LAS file."""
-    if uploaded_file is not None:
-        try:
-            # Read the uploaded file as bytes, then decode to StringIO for LAS reading
-            bytes_data = uploaded_file.read()
+def load_data(uploaded_file, file_type='las'):
+    if uploaded_file:
+        bytes_data = uploaded_file.read()
+        if file_type == 'las':
             str_io = StringIO(bytes_data.decode('Windows-1252'))
             las_file = lasio.read(str_io)
             well_data = las_file.df()
             well_data['DEPTH'] = well_data.index
-        except UnicodeDecodeError as e:
-            st.error(f"Error loading log.las: {e}")
-            las_file, well_data = None, None
-    else:
-        las_file, well_data = None, None
-    return las_file, well_data
+            return las_file, well_data
+        elif file_type == 'csv':
+            df = pd.read_csv(StringIO(bytes_data.decode('utf-8')))
+            return None, df
+    return None, None
 
-# Page configurations
-st.set_page_config(layout="wide", page_title='Petro Data Explorer')
+def plot_subplots(core_data, well_data):
+    fig = plt.figure(figsize=(10, 10))
+    ax1 = plt.subplot2grid(shape=(3, 3), loc=(0, 0), rowspan=3)
+    ax2 = plt.subplot2grid(shape=(3, 3), loc=(0, 1), rowspan=3)
+    ax3 = plt.subplot2grid(shape=(3, 3), loc=(0, 2))
+    ax4 = plt.subplot2grid(shape=(3, 3), loc=(1, 2))
+    ax5 = plt.subplot2grid(shape=(3, 3), loc=(2, 2))
+    ax6 = ax1.twiny()
 
-# Title of the app
-st.title('Petro Data Explorer')
+    if 'CPOR' in core_data.columns:
+        ax1.scatter(core_data["CPOR"], core_data["DEPTH"], marker='o', c='red')
+        ax1.set_xlim(0, 50)
+        ax1.set_ylim(4010, 3825)
+        ax1.set_title('Core Porosity')
+        ax1.set_xlabel('Porosity (%)')
+        ax1.set_ylabel('Depth (ft)')
+        ax1.grid()
+        
+        ax1_twin = ax1.twinx()
+        ax1_twin.plot(core_data["DEPTH"], core_data["CPOR"], color='green', linewidth=2)
+        ax1_twin.set_ylabel('CPOR Line', color='green')
+        ax1_twin.tick_params(axis='y', labelcolor='green')
+    
+    if 'CKHG' in core_data.columns:
+        ax2.scatter(core_data["CKHG"], core_data["DEPTH"], marker='o', c='blue')
+        ax2.set_xlim(0.01, 100000)
+        ax2.set_xscale('log')
+        ax2.set_ylim(4010, 3825)
+        ax2.set_title('Core Permeability')
+        ax2.set_xlabel('Permeability (mD)')
+        ax2.grid()
+    
+    if 'CPOR' in core_data.columns and 'CKHG' in core_data.columns:
+        ax3.scatter(core_data["CPOR"], core_data["CKHG"], marker='o', alpha=0.5)
+        ax3.set_yscale('log')
+        ax3.set_xlim(0, 50)
+        ax3.set_title('Poro-Perm Scatter Plot')
+        ax3.set_xlabel('Core Porosity (%)')
+        ax3.set_ylabel('Core Permeability (mD)')
+        ax3.grid()
+    
+    if 'CPOR' in core_data.columns:
+        ax4.hist(core_data["CPOR"].dropna(), bins=30, edgecolor='black', color='red', alpha=0.6)
+        ax4.set_xlabel('Core Porosity')
+        ax4.set_title('Porosity Histogram')
+    
+    if 'CGD' in core_data.columns:
+        ax5.hist(core_data["CGD"].dropna(), bins=30, edgecolor='black', color='blue', alpha=0.6)
+        ax5.set_xlabel('Core Grain Density')
+        ax5.set_title('Grain Density Histogram')
+    
+    if 'PHIF' in well_data.columns:
+        ax6.plot(well_data['PHIF'], well_data['DEPTH'], color='blue', lw=0.5)
+        ax6.set_xlim(0, 0.4)
+        ax6.set_xlabel('NEU (Well Data)')
+    
+    plt.tight_layout()
+    st.pyplot(fig)
 
-# Sidebar options to navigate between pages
-st.sidebar.title("Navigation")
-page = st.sidebar.radio(
-    "Select a page:",
-    [
-        'Well Logging',
-        'Core Analysis',
-        'Welly Multi Well Projects',
-        'Survey Data',
-        'Decline Curve Analysis',
-        'Estimated Ultimate Recovery'
-    ]
-)
+def show_page():
+    st.title("Well Logging Analysis")
+    uploaded_las = st.file_uploader("Upload your LAS file", type=["las"])
+    uploaded_csv = st.file_uploader("Upload your Core Data CSV file", type=["csv"])
+    las_file, well_data = load_data(uploaded_las, file_type='las')
+    _, core_data = load_data(uploaded_csv, file_type='csv')
+    if core_data is not None:
+        st.write("### Core Data Overview")
+        st.write(core_data.head())
+        st.write("### Subplots for Core Porosity, Core Permeability, Histograms, and PHIF vs Depth")
+        plot_subplots(core_data, well_data)
 
-# File description for different sections
-file_descriptions = {
-    'Well Logging': "Upload LAS file (.las format) for well logging data analysis. LAS files contain well logs, which can be processed to generate different analyses, including gamma ray, resistivity, and density logs.",
-    'Core Analysis': "Upload CSV file containing core analysis data. The core analysis data includes physical properties like porosity, permeability, and grain density for analyzing reservoir characteristics.",
-    'Welly Multi Well Projects': "Upload LAS files for multiple wells. The project involves analyzing data from several wells to compare geological properties and production information across different locations.",
-    'Survey Data': "Upload LAS file with survey data for well path analysis. This data includes well deviations, inclination, azimuth, and other survey parameters to analyze the well's trajectory.",
-    'Decline Curve Analysis': "Upload an Excel file with production data for decline curve analysis. This analysis helps estimate future production rates and reserves based on past performance.",
-    'Estimated Ultimate Recovery': "Upload an Excel file containing production data for estimating ultimate recovery. The data helps estimate the total recoverable reserves using different recovery models."
-}
-
-# Display description of the selected page
-st.sidebar.subheader("Page Description")
-st.sidebar.write(file_descriptions[page])
-
-# Import and display corresponding page based on user selection
-if page == 'Well Logging':
-    import well_logging
-    st.sidebar.subheader("Well Logging Instructions")
-    st.sidebar.write("Upload LAS file for detailed well logging analysis.")
-    well_logging.show_page()
-elif page == 'Core Analysis':
-    import core_analysis
-    st.sidebar.subheader("Core Analysis Instructions")
-    st.sidebar.write("Upload a CSV file containing core data.")
-    core_analysis.show_page()
-elif page == 'Welly Multi Well Projects':
-    import welly_multi_well_projects
-    st.sidebar.subheader("Multi-Well Projects Instructions")
-    st.sidebar.write("Upload multiple LAS files for comparison.")
-    welly_multi_well_projects.show_page()
-elif page == 'Survey Data':
-    import survey_data
-    st.sidebar.subheader("Survey Data Instructions")
-    st.sidebar.write("Upload LAS file containing survey data for analysis.")
-    survey_data.show_page()
-elif page == 'Decline Curve Analysis':
-    import decline_curve_analysis
-    st.sidebar.subheader("Decline Curve Analysis Instructions")
-    st.sidebar.write("Upload Excel file with production data for decline analysis.")
-    decline_curve_analysis.show_page()
-elif page == 'Estimated Ultimate Recovery':
-    import estimated_ultimate_recovery
-    st.sidebar.subheader("Estimated Ultimate Recovery Instructions")
-    st.sidebar.write("Upload Excel file with production data for recovery estimation.")
-    estimated_ultimate_recovery.show_page()
+if __name__ == "__main__":
+    show_page()
